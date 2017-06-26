@@ -1,6 +1,6 @@
 import os
 
-import natsort
+#import natsort
 import numpy as np
 import math
 from math import factorial
@@ -65,9 +65,11 @@ def perm_coeff(z, resist, resist_err):
         Uncertainty in overall permeability of the bilayer
     """
     
-    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
+    #P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
+    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-7) # convert z from nm to cm
     
-    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
+    #R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
+    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-7 # s/cm
     P_err = R_err_global * (P**2)
     Perrrel = P_err/P
     print('Overall permeability: {P:.3e} [cm/s]'.format(**locals()))
@@ -271,10 +273,11 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
 
     """
     import glob
-    sweep_dirs = natsort.natsorted(glob.glob(
-        os.path.join(path, '{0}*/'.format(directory_prefix))))
+    #sweep_dirs = natsort.natsorted(glob.glob(
+    #    os.path.join(path, '{0}*/'.format(directory_prefix))))
+    sweep_dirs = glob.glob(os.path.join(path, '{0]*/'.format(directory_prefix)))
     if n_windows is None:
-        z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+        z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
         n_windows = z_windows.shape[0]
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
@@ -293,13 +296,14 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
             dstep = data[1, 0] - data[0, 0]
             
             forceseries[:,iw] += forces/n_sweeps 
-    time = data[range(serieslen), 0]*timestep/1000
+    #time = data[range(serieslen), 0]*timestep/1000
+    time = data[range(serieslen), 0]*timestep
     
     #np.savetxt('dGmean.dat', np.vstack((z_windows, dGmeanSym)).T, fmt='%.4f')
     return {'time': time, 'forces': forceseries}
 
 
-def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=1.9872041e-3,
+def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=8.314e-3,
         directory_prefix='Sweep'):
     """Combine force autocorrelations to calculate the free energy profile
     
@@ -312,7 +316,7 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     timestep : float
         Simulation timestep in fs
     kB : float
-        Boltzmann constant, determines units (default is kcal/mol-K)
+        Boltzmann constant, determines units (default is kJ/mol-K)
     n_sweeps : int
         The number of sweeps to analyze
     verbosity : int
@@ -373,15 +377,17 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     useful for quick testing.
     """
     import glob
-    sweep_dirs = natsort.natsorted(glob.glob(
-        os.path.join(path, '{0}*/'.format(directory_prefix))))
+    #sweep_dirs = natsort.natsorted(glob.glob(
+    #    os.path.join(path, '{0}*/'.format(directory_prefix))))
+    sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
     time = np.loadtxt(os.path.join(sweep_dirs[0], 'fcorr0.dat'))[:, 0]
-    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
     n_windows = z_windows.shape[0]
     n_win_half = int(np.ceil(float(n_windows)/2))
     dz = z_windows[2]-z_windows[1]
     RT2 = (kB*T)**2
-    RT2 *= 1e-4  # convert from \AA2/ps to cm2/s
+    #RT2 *= 1e-4  # convert from \AA2/ps to cm2/s
+    RT2 *= 1e-2  # convert from nm2/ps to cm2/s
     # arrays to hold the forces, integrated FACFs, and free energies from each
     # window and each sweep
     if n_sweeps is None:
@@ -455,10 +461,11 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
 def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Sweep'):
 
     import glob
-    sweep_dirs = natsort.natsorted(glob.glob(
-        os.path.join(path, '{0}*/'.format(directory_prefix))))
+    #sweep_dirs = natsort.natsorted(glob.glob(
+    #    os.path.join(path, '{0}*/'.format(directory_prefix))))
+    sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefeix)))
     time = np.loadtxt(os.path.join(sweep_dirs[0], 'rcorr0.dat'))[:, 0]
-    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
     n_windows = z_windows.shape[0]
     n_win_half = int(np.ceil(float(n_windows)/2))
 
@@ -514,17 +521,19 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     sweep.
     """
     import glob
-    sweep_dirs = natsort.natsorted(glob.glob(os.path.join(
-        path, '{0}*/'.format(directory_prefix))))
-    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt')).shape[0]
+    #sweep_dirs = natsort.natsorted(glob.glob(os.path.join(
+    #    path, '{0}*/'.format(directory_prefix))))
+    sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
+    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     # loop over sweeps
     for sweep_dir in sweep_dirs[:n_sweeps]:
         if verbosity >= 2:
-            print('Window / Mean force / n_timepoints / dstep')
+            print('Window / Mean force / n_timepoints / dstep (fs)')
         for window in range(n_windows):
-            data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}'.format(window)))
+            data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
             forces = data[:, 1]
-            dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
+            #dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
+            dstep = (data[1, 0] - data[0, 0])*timestep
             if verbosity >= 2:
                 print('{0} / {1} / {2} / {3}'.format(
                     window, np.mean(data[:, 1]), data.shape[0], dstep))
@@ -560,13 +569,14 @@ def analyze_rot_sweeps(path, n_sweeps=None, correlation_length=300, directory_pr
     This function prints the rotational ACF at each window from each sweep.
     """
     import glob
-    sweep_dirs = natsort.natsorted(glob.glob(os.path.join(
-        path, '{0}*/'.format(directory_prefix))))
+    #sweep_dirs = natsort.natsorted(glob.glob(os.path.join(
+    #    path, '{0}*/'.format(directory_prefix))))
+    sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
 
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
 
-    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt')).shape[0]
+    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     info = [(7, 3, 'water')] # 7 water molecules per simulation 
     
     # loop over sweeps

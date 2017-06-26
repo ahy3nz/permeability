@@ -314,7 +314,7 @@ def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'\u00
 
 
 def plot_sym_exp_free_energy(z_windows, dG, dG_err, diffz, diffz_err,
-        resist, resist_err, T, kB=1.9872041e-3, z_units=u'\u00c5',
+        resist, resist_err, T, kB=8.314e-3, z_units=u'\u00c5',
         fig_filename='expdelG-sym.pdf', grid=True, addlegend=False):
     """Plot symmetrized delta G
     
@@ -337,7 +337,7 @@ def plot_sym_exp_free_energy(z_windows, dG, dG_err, diffz, diffz_err,
     T : float
         Temperature
     kB : float
-        Boltzmann constant
+        Boltzmann constant (determines units)
     z_units : str
         The units of the z-values in z_windows
     energy_units : str
