@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from permeability.functions import savitzky_golay 
 from matplotlib.ticker import LogLocator, MultipleLocator, FormatStrFormatter
@@ -56,7 +58,7 @@ def plot_forces(z_windows, forces, fig_filename='forces.pdf',
     ax.tick_params(axis='both', which='major', pad=8)
     fig.tight_layout()
     fig.savefig('{fig_filename}'.format(**locals()))
-    plt.show()
+    #plt.show()
 
 def plot_free_energy_z(z_windows, free_energy, fig_filename='delta_G.pdf',
         z_units=u'\u00c5', energy_units=u'kcal/mol', plot_mean=True,
@@ -102,12 +104,15 @@ def plot_free_energy_z(z_windows, free_energy, fig_filename='delta_G.pdf',
     ax.set_xlabel(u'z [{z_units}]'.format(**locals()), fontweight='bold')
     ax.set_ylabel(u'$\Delta$G(z) [{energy_units}]'.format(**locals()), fontweight='bold')
     ax.grid(grid)
-    zmin = z_windows[0]    
-    plt.xlim(zmin,-zmin)
+    #zmin = z_windows[0]    
+    zmin=min(z_windows)
+    zmax=max(z_windows)
+    #plt.xlim(zmin,-zmin)
+    plt.xlim(zmin,zmax)
     ax.tick_params(axis='both', which='major', pad=8)
     fig.tight_layout()
     fig.savefig(fig_filename)
-    plt.show()
+    #plt.show()
 
 
 def plot_timeseries(time, forces, time_units='ps', force_units=u'kcal/mol-\u00c5', 
@@ -123,7 +128,7 @@ def plot_timeseries(time, forces, time_units='ps', force_units=u'kcal/mol-\u00c5
     ax.tick_params(axis='both', which='major', pad=8)
     fig.tight_layout()
     fig.savefig('{fig_filename}'.format(**locals()))
-    plt.show()
+    #plt.show()
     
 def plot_rot_acfs_time(time, racfs, time_units='ps', normalize=True, grid=True,
         fig_filename='racf_per_window.png'):
