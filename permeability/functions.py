@@ -297,7 +297,8 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
             
             forceseries[:,iw] += forces/n_sweeps 
     #time = data[range(serieslen), 0]*timestep/1000
-    time = data[range(serieslen), 0]*timestep
+    #time = data[range(serieslen), 0]*timestep
+    time = data[range(serieslen), 0]
     
     #np.savetxt('dGmean.dat', np.vstack((z_windows, dGmeanSym)).T, fmt='%.4f')
     return {'time': time, 'forces': forceseries}
