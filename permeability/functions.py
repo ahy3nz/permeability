@@ -420,7 +420,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
             facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
         if verbosity >= 1:
             print('End of sweep {0}'.format(sweep))
-        dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+        #dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+        dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
     
     int_facf_win /= n_sweeps
     facf_win /= n_sweeps
