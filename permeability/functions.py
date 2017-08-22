@@ -110,7 +110,7 @@ def integrate_acf_over_time(filename, timestep=1.0, average_fraction=0.1):
     intFval = np.mean(intF[-lastbit:])
     return intF, intFval, FACF 
 
-def symmetrize_each(data, zero_boundary_condition=False):
+def symmetrize_each(data, zero_boundary_condition=False, center_z=0, z_windows=None):
     """Symmetrize a profile
     
     Params
@@ -119,6 +119,10 @@ def symmetrize_each(data, zero_boundary_condition=False):
         Data to be symmetrized
     zero_boundary_condition : bool, default=False
         If True, shift the right half of the curve before symmetrizing
+    center_z : float, default=0
+        Centering can be specified around a specific point. This is a z value
+    z_windows : np.ndarray, shape = (n_windows), 
+        numpy array whose values correspond to each z coordinate
 
     Returns
     -------
@@ -134,15 +138,31 @@ def symmetrize_each(data, zero_boundary_condition=False):
     """
     n_sweeps = data.shape[0]
     n_windows = data.shape[1]
-    n_win_half = int(np.ceil(float(n_windows)/2))
-    dataSym = np.zeros_like(data)
-    for s in range(n_sweeps):
-        for i, sym_val in enumerate(dataSym[s,:n_win_half]):
-            val = 0.5 * (data[s,i] + data[s,-(i+1)])
-            dataSym[s,i] = val
-            dataSym[s,-(i+1)] = val
-        if zero_boundary_condition:
-            dataSym[s,:] -= dataSym[s,0] 
+    if center_z >= 0:
+        centering_index = np.where(z_windows <= center_z + 0.1 && 
+                                   z_windows >= center_z - 0.1)
+        n_sym_windows = 2 * min(centering_index, n_windows - centering_index) - 1
+        dataSym = np.zeros(n_sweeps, n_sym_windows)
+        n_win_half = int(np.ceil(float(n_sym_windows)/2))
+        for s in range(n_sweeps):
+            for i, sym_val in enumerate(dataSym[s,:n_win_half]):
+                first_index = centering_index - i
+                second_index = centering_index + i
+                val = 0.5 * (data[s,first_index] + data[s,second_index])
+                dataSym[s,first_index] = val
+                dataSym[s,second_index] = val
+            if zero_boundary_condition:
+                dataSym[s,:] -= dataSym[s,0] 
+    else:
+        dataSym = np.zeros_like(data)
+        n_win_half = int(np.ceil(float(n_windows)/2))
+        for s in range(n_sweeps):
+            for i, sym_val in enumerate(dataSym[s,:n_win_half]):
+                val = 0.5 * (data[s,i] + data[s,-(i+1)])
+                dataSym[s,i] = val
+                dataSym[s,-(i+1)] = val
+            if zero_boundary_condition:
+                dataSym[s,:] -= dataSym[s,0] 
     return dataSym
 
 def symmetrize(data, zero_boundary_condition=False):
@@ -305,7 +325,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
 
 
 def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=8.314e-3,
-        directory_prefix='Sweep'):
+        directory_prefix='Sweep', center_z=0.0):
     """Combine force autocorrelations to calculate the free energy profile
     
     Params
@@ -327,6 +347,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     directory_prefix : str, default = 'Sweep'
         Prefix of directories in path that contain the force ACF data. E.g., if
         the data is in sweep<N>, use directory_prefix='sweep'
+    center_z : float, default=0
+        Centering can be specified around a specific point. This is a z value
 
     Returns
     -------
@@ -431,11 +453,13 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     diffusion_coeff = RT2 / np.mean(int_F_acf_vals, axis=0)
     diffusion_coeff_err = np.std(RT2 * int_F_acf_vals, axis=0) / np.sqrt(n_sweeps)
    
-    int_facf_sym_all = symmetrize_each(int_F_acf_vals) 
+    int_facf_sym_all = symmetrize_each(int_F_acf_vals, z_windows=z_windows, 
+            center_z=center_z) 
     diff_coeff_sym = RT2/np.mean(int_facf_sym_all, axis=0)
     diff_coeff_sym_err = RT2*np.std(int_facf_sym_all, axis=0) / (np.mean(int_facf_sym_all, axis=0)**2) / np.sqrt(n_sweeps)
      
-    dG_sym_all = symmetrize_each(dG, zero_boundary_condition=True) 
+    dG_sym_all = symmetrize_each(dG, zero_boundary_condition=True, 
+            z_windows=z_windows, center_z=center_z) 
     dG_sym = np.mean(dG_sym_all, axis=0)
     dG_sym_err = np.std(dG_sym_all, axis=0) / np.sqrt(n_sweeps)
     

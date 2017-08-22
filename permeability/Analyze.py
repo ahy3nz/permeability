@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pickle as pickle
 from os import system 
 import pdb
+import mdtraj as mdt
 
 #data_dir = '/Users/rmhartkamp/Dropbox/PostDoc_2_Vanderbilt/Simulation/Permeability/DSPC_C12OH_3_1'
 #data_dir = '/raid6/homes/ahy3nz/Trajectories/Data/11_DSPC_C18OH/DSPC-50_alc18-50_5-4a'
@@ -17,7 +18,14 @@ prm.analyze_sweeps(data_dir, timestep=10.0, verbosity=2, directory_prefix='sweep
 #prm.plot_timeseries(forcetime['time'], forcetime['forces']) 
 
 
-output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=10.0, verbosity=2, directory_prefix='sweep',n_sweeps=n_sweeps)
+grofile = 'md_' + os.getcwd().split('/')[-1] + '.gro'
+traj = mdt.load(grofile)
+non_water = traj.topology.select('not water')
+sub_traj = traj.atom_slice(non_water)
+com = mdt.computer_center_of_mass(sub_traj)
+center_z = com[0,2]
+
+output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=10.0, verbosity=2, directory_prefix='sweep',n_sweeps=n_sweeps, center_z=center_z)
 pickle.dump(output, open('output.p', 'wb'))
 
 #output = pickle.load(open('output.p', 'rb'))
