@@ -128,6 +128,10 @@ def symmetrize_each(data, zero_boundary_condition=False, center_z=0, z_windows=N
     -------
     dataSym : np.ndarray, shape=(n,)
         symmetrized data
+    centering_index : int
+        index corresponding to center of profile
+    n_min : int
+        number of elements left and right of the centering index
 
     This function symmetrizes a 1D array. It also provides an error estimate
     for each value, taken as the standard error between the "left" and "right"
@@ -139,17 +143,17 @@ def symmetrize_each(data, zero_boundary_condition=False, center_z=0, z_windows=N
     n_sweeps = data.shape[0]
     n_windows = data.shape[1]
     if center_z >= 0:
-        centering_index = np.where(abs(z_windows - center_z) < 0.1)
-        n_sym_windows = 2 * min(centering_index, n_windows - centering_index) - 1
-        dataSym = np.zeros(n_sweeps, n_sym_windows)
-        n_win_half = int(np.ceil(float(n_sym_windows)/2))
+        centering_index = np.where(abs(z_windows - center_z) < 0.1)[0][0]
+        n_left = centering_index
+        n_right = n_windows - centering_index - 1
+        n_min = min(n_left, n_right)
+        dataSym = data[:, centering_index - n_min: centering_index + n_min]
+        n_win_half = centering_index
         for s in range(n_sweeps):
             for i, sym_val in enumerate(dataSym[s,:n_win_half]):
-                first_index = centering_index - i
-                second_index = centering_index + i
-                val = 0.5 * (data[s,first_index] + data[s,second_index])
-                dataSym[s,first_index] = val
-                dataSym[s,second_index] = val
+                val = 0.5 * (data[s,i] + data[s,-(i+1)])
+                dataSym[s,i] = val
+                dataSym[s,-(i+1)] = val
             if zero_boundary_condition:
                 dataSym[s,:] -= dataSym[s,0] 
     else:
@@ -162,7 +166,7 @@ def symmetrize_each(data, zero_boundary_condition=False, center_z=0, z_windows=N
                 dataSym[s,-(i+1)] = val
             if zero_boundary_condition:
                 dataSym[s,:] -= dataSym[s,0] 
-    return dataSym
+    return dataSym, centering_index, n_min
 
 def symmetrize(data, zero_boundary_condition=False):
     """Symmetrize a profile
@@ -452,23 +456,25 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     diffusion_coeff = RT2 / np.mean(int_F_acf_vals, axis=0)
     diffusion_coeff_err = np.std(RT2 * int_F_acf_vals, axis=0) / np.sqrt(n_sweeps)
    
-    int_facf_sym_all = symmetrize_each(int_F_acf_vals, z_windows=z_windows, 
+    int_facf_sym_all, centering_index, n_min = symmetrize_each(int_F_acf_vals, z_windows=z_windows, 
             center_z=center_z) 
+
     diff_coeff_sym = RT2/np.mean(int_facf_sym_all, axis=0)
     diff_coeff_sym_err = RT2*np.std(int_facf_sym_all, axis=0) / (np.mean(int_facf_sym_all, axis=0)**2) / np.sqrt(n_sweeps)
      
-    dG_sym_all = symmetrize_each(dG, zero_boundary_condition=True, 
+    dG_sym_all, centering_index, n_min= symmetrize_each(dG, zero_boundary_condition=True, 
             z_windows=z_windows, center_z=center_z) 
     dG_sym = np.mean(dG_sym_all, axis=0)
     dG_sym_err = np.std(dG_sym_all, axis=0) / np.sqrt(n_sweeps)
     
     resist_all = np.exp(dG_sym_all / (kB*T)) * int_facf_sym_all / RT2 
-    
+     
     expdGerr = np.exp(dG_sym / (kB*T)) * dG_sym_err / (kB*T) 
     resist = np.exp(dG_sym / (kB*T)) / diff_coeff_sym
     resist_err = resist * np.sqrt((expdGerr/np.exp(dG_sym / (kB*T)))**2+(diff_coeff_sym_err/diff_coeff_sym)**2) 
     
     perm, perm_err = perm_coeff(z_windows, resist, resist_err)
+    sym_z_windows = z_windows[centering_index - n_min : centering_index + n_min]
 
     #np.savetxt('dGmean.dat', np.vstack((z_windows, dGmeanSym)).T, fmt='%.4f')
     return {'z': z_windows, 'time': time, 'forces': forces, 'dG': dG,
@@ -480,7 +486,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
             'd_z_sym_err': diff_coeff_sym_err, 
             'R_z_all': resist_all, 'R_z': resist, 'R_z_err': resist_err,
             'int_F_acf_vals': int_F_acf_vals, 
-            'permeability': perm,'perm_err': perm_err}
+            'permeability': perm,'perm_err': perm_err,
+            'sym_z': sym_z_windows}
 
 
 def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Sweep'):
