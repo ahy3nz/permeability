@@ -139,7 +139,7 @@ def symmetrize_each(data, zero_boundary_condition=False, center_z=0, z_windows=N
     n_sweeps = data.shape[0]
     n_windows = data.shape[1]
     if center_z >= 0:
-        centering_index = np.where(z_windows <= center_z + 0.1 && 
+        centering_index = np.where(z_windows <= center_z + 0.1 and 
                                    z_windows >= center_z - 0.1)
         n_sym_windows = 2 * min(centering_index, n_windows - centering_index) - 1
         dataSym = np.zeros(n_sweeps, n_sym_windows)
