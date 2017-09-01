@@ -12,7 +12,7 @@ import mdtraj as mdt
 data_dir = os.getcwd()
 n_sweeps = 30
 
-prm.analyze_sweeps(data_dir, timestep=10.0, verbosity=1, directory_prefix='sweep', n_sweeps=n_sweeps)
+prm.analyze_sweeps(data_dir, timestep=10.0, verbosity=2, directory_prefix='sweep', n_sweeps=n_sweeps)
 
 
 #forcetime = prm.force_timeseries(data_dir, timestep=2.0, n_windows=40, start_window=15, directory_prefix='sweep')
@@ -29,7 +29,7 @@ center_z = com[0,2]
 # Rounding center_z
 center_z = np.ceil(10*center_z/2)*2/10
 
-output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=10.0, verbosity=1, directory_prefix='sweep',n_sweeps=n_sweeps, center_z=center_z)
+output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=10.0, verbosity=2, directory_prefix='sweep',n_sweeps=n_sweeps, center_z=center_z)
 pickle.dump(output, open('output.p', 'wb'))
 
 #output = pickle.load(open('output.p', 'rb'))
