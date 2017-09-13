@@ -534,9 +534,9 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
         for window in range(n_windows):
             data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
             forces = data[:, 1]
-            #dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
+            dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
             #dstep = (data[1, 0] - data[0, 0])*timestep
-            dstep = (data[1,0] - data[0,0]) #AY here
+            #dstep = (data[1,0] - data[0,0]) #AY here
             if verbosity >= 2:
                 print('{0} / {1} / {2} / {3}'.format(
                     window, np.mean(data[:, 1]), data.shape[0], dstep))
