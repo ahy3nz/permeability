@@ -10,14 +10,14 @@ import pdb
 data_dir = os.getcwd()
 n_sweeps = 31
 
-prm.analyze_sweeps(data_dir, timestep=10.0, verbosity=2, directory_prefix='sweep', n_sweeps=n_sweeps)
+prm.analyze_sweeps(data_dir, timestep=1000.0, verbosity=2, directory_prefix='sweep', n_sweeps=n_sweeps)
 
 
 #forcetime = prm.force_timeseries(data_dir, timestep=2.0, n_windows=40, start_window=15, directory_prefix='sweep')
 #prm.plot_timeseries(forcetime['time'], forcetime['forces']) 
 
 
-output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=10.0, verbosity=2, directory_prefix='sweep',n_sweeps=n_sweeps)
+output = prm.analyze_force_acf_data(data_dir, 305.0, timestep=1000.0, verbosity=2, directory_prefix='sweep',n_sweeps=n_sweeps)
 pickle.dump(output, open('output.p', 'wb'))
 
 #output = pickle.load(open('output.p', 'rb'))
