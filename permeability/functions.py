@@ -274,7 +274,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
     sweep_dirs = natsort.natsorted(glob.glob(
         os.path.join(path, '{0}*/'.format(directory_prefix))))
     if n_windows is None:
-        z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+        z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
         n_windows = z_windows.shape[0]
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
@@ -376,7 +376,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     sweep_dirs = natsort.natsorted(glob.glob(
         os.path.join(path, '{0}*/'.format(directory_prefix))))
     time = np.loadtxt(os.path.join(sweep_dirs[0], 'fcorr0.dat'))[:, 0]
-    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
+    z_windows = [10*val for val in z_windows]
     n_windows = z_windows.shape[0]
     n_win_half = int(np.ceil(float(n_windows)/2))
     dz = z_windows[2]-z_windows[1]
@@ -458,7 +459,7 @@ def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Swee
     sweep_dirs = natsort.natsorted(glob.glob(
         os.path.join(path, '{0}*/'.format(directory_prefix))))
     time = np.loadtxt(os.path.join(sweep_dirs[0], 'rcorr0.dat'))[:, 0]
-    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt'))
+    z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
     n_windows = z_windows.shape[0]
     n_win_half = int(np.ceil(float(n_windows)/2))
 
@@ -516,7 +517,7 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     import glob
     sweep_dirs = natsort.natsorted(glob.glob(os.path.join(
         path, '{0}*/'.format(directory_prefix))))
-    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt')).shape[0]
+    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     # loop over sweeps
     for sweep_dir in sweep_dirs[:n_sweeps]:
         if verbosity >= 2:
@@ -566,7 +567,7 @@ def analyze_rot_sweeps(path, n_sweeps=None, correlation_length=300, directory_pr
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
 
-    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'y0list.txt')).shape[0]
+    n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     info = [(7, 3, 'water')] # 7 water molecules per simulation 
     
     # loop over sweeps
