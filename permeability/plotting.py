@@ -45,13 +45,13 @@ def plot_forces(z_windows, forces, fig_filename='forces.pdf',
     if plot_mean:
         mean_force = np.mean(forces, axis=0)
         ax.plot(z_windows, mean_force)
-        np.savetxt('forces.dat', np.column_stack((z_windows, mean_force)))
+        np.savetxt('{}_mean.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_force)))
         std_err = np.std(forces, axis=0) / np.sqrt(forces.shape[0])
         ax.fill_between(z_windows, mean_force+std_err, mean_force-std_err,
                 facecolor='#a8a8a8', edgecolor='#a8a8a8')
     for force_series in forces:
         ax.plot(z_windows, force_series, alpha=sweep_alpha, zorder=0)
-        np.savetxt('forces.dat', np.column_stack((z_windows, force_series)))
+        np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, force_series)))
     ax.set_xlabel(u'z [{z_units}]'.format(**locals()), fontweight='bold')
     ax.set_ylabel(u'F(z) [{force_units}]'.format(**locals()), fontweight='bold')
     ax.grid(grid)
@@ -97,7 +97,7 @@ def plot_free_energy_z(z_windows, free_energy, fig_filename='delta_G.pdf',
     if plot_mean:
         mean_free_energy = np.mean(free_energy, axis=0)
         ax.plot(z_windows, mean_free_energy)
-        np.savetxt('delta_G.dat', np.column_stack((z_windows, mean_free_energy)))
+        np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_free_energy)))
         std_err = np.std(free_energy, axis=0) / np.sqrt(free_energy.shape[0])
         ax.fill_between(z_windows, mean_free_energy+std_err, 
                 mean_free_energy-std_err,
@@ -222,7 +222,7 @@ def plot_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff_err
     zmin = z_windows[0]    
     fig, ax = plt.subplots()
     ax.plot(z_windows, diffusion_coeff)
-    np.savetxt('d_z.dat', np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
+    np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
     ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
     ax.plot([-zmin-10, -zmin],[3.86e-5, 3.86e-5],linestyle='--', color='r')
     ax.fill_between(z_windows, diffusion_coeff+diffusion_coeff_err, 
@@ -247,7 +247,7 @@ def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff
     else:
         fig, ax = figax 
     line, = ax.semilogy(z_windows, diffusion_coeff, label=sys_name)
-    np.savetxt('d-sym_z.dat', np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
+    np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
     # from Raabe and Sadus, JCP, 2012
     zmin = z_windows[0]    
     #ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
@@ -306,7 +306,7 @@ def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'nm',
         fig, ax = figax 
     
     line, = ax.plot(z_windows, delta_G, label=sys_name)
-    np.savetxt('delG-sym.dat', np.column_stack((z_windows, delta_G, delta_G_err)))
+    np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, delta_G, delta_G_err)))
     ax.fill_between(z_windows, delta_G+delta_G_err, 
             delta_G-delta_G_err,
             facecolor=line.get_color(), edgecolor=line.get_color(), alpha=0.2)
