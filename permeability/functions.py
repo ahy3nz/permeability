@@ -6,6 +6,7 @@ import math
 from math import factorial
 import itertools
 import multiprocessing
+import ctypes
 #from groupy.gbb import Gbb 
 #from groupy.system import System
 #from groupy.mdio import *
@@ -396,15 +397,31 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     # window and each sweep
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
-    forces = np.zeros((n_sweeps, n_windows))
-    int_F_acf_vals = np.zeros((n_sweeps, n_windows))
-    dG = np.zeros((n_sweeps, n_windows))
+
+    #forces = np.zeros((n_sweeps, n_windows))
+    force_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    forces = np.ctypeslib.as_array(force_base.get_obj())
+    forces = forces.reshape(n_sweeps,n_windows)
+
+    #int_F_acf_vals = np.zeros((n_sweeps, n_windows))
+    int_F_acf_vals_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    int_F_acf_vals = np.ctypeslib.as_array(int_F_acf_vals_base.get_obj())
+    int_F_acf_vals = int_F_acf_vals.reshape(n_sweeps, n_windows)
+
+    #dG = np.zeros((n_sweeps, n_windows))
+    dG_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    dG = np.ctypeslib.as_array(dG_base.get_obj())
+    dG = dG.reshape(n_sweeps, n_windows)
+
     int_facf_win = None
-    for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+    global _parallel_analyze_force_acf
+
+    def _parallel_analyze_force_acf(sweep_info):
+        sweep = sweep_info[0]
+        sweep_dir = sweep_info[1]
+
         int_Fs = []
         Facfs = []
-        if verbosity >=2:
-            print('window / window z-value / max int_F')
         for window in range(n_windows):
             filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
             int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
@@ -421,11 +438,12 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
         for i, val in enumerate(int_facf_win):
             val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
             facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
-        if verbosity >= 1:
-            print('End of sweep {0}'.format(sweep))
         dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
         #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
-    
+
+    with multiprocessing.Pool() as p:
+        p.map(_parallel_analyze_force_acf, enumerate(sweep_dirs[:n_sweeps]))
+
     int_facf_win /= n_sweeps
     facf_win /= n_sweeps
     dG_mean = np.mean(dG, axis=0)
@@ -461,6 +479,71 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
             'R_z_all': resist_all, 'R_z': resist, 'R_z_err': resist_err,
             'int_F_acf_vals': int_F_acf_vals, 
             'permeability': perm,'perm_err': perm_err}
+
+
+
+# Old serialstuff
+#    for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+#        int_Fs = []
+#        Facfs = []
+#        if verbosity >=2:
+#            print('window / window z-value / max int_F')
+#        for window in range(n_windows):
+#            filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
+#            int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
+#            int_F_acf_vals[sweep, window] = int_F_val
+#            int_Fs.append(int_F)
+#            Facfs.append(Facf)
+#            if int_facf_win is None:
+#                int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+#                facf_win = np.zeros((n_win_half, int_F.shape[0]))
+#            forces[sweep, window] = np.loadtxt(
+#                    os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
+#            if verbosity >= 2:
+#                print(window, z_windows[window], max(int_F))
+#        for i, val in enumerate(int_facf_win):
+#            val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
+#            facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
+#        if verbosity >= 1:
+#            print('End of sweep {0}'.format(sweep))
+#        dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+#        #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
+#    
+#    int_facf_win /= n_sweeps
+#    facf_win /= n_sweeps
+#    dG_mean = np.mean(dG, axis=0)
+#    dG_stderr = np.std(dG, axis=0) / np.sqrt(n_sweeps)
+#    
+#    diffusion_coeff = RT2 / np.mean(int_F_acf_vals, axis=0)
+#    diffusion_coeff_err = np.std(RT2 * int_F_acf_vals, axis=0) / np.sqrt(n_sweeps)
+#   
+#    int_facf_sym_all = symmetrize_each(int_F_acf_vals) 
+#    diff_coeff_sym = RT2/np.mean(int_facf_sym_all, axis=0)
+#    diff_coeff_sym_err = RT2*np.std(int_facf_sym_all, axis=0) / (np.mean(int_facf_sym_all, axis=0)**2) / np.sqrt(n_sweeps)
+#     
+#    dG_sym_all = symmetrize_each(dG, zero_boundary_condition=True) 
+#    dG_sym = np.mean(dG_sym_all, axis=0)
+#    dG_sym_err = np.std(dG_sym_all, axis=0) / np.sqrt(n_sweeps)
+#    
+#    resist_all = np.exp(dG_sym_all / (kB*T)) * int_facf_sym_all / RT2 
+#    
+#    expdGerr = np.exp(dG_sym / (kB*T)) * dG_sym_err / (kB*T) 
+#    resist = np.exp(dG_sym / (kB*T)) / diff_coeff_sym
+#    resist_err = resist * np.sqrt((expdGerr/np.exp(dG_sym / (kB*T)))**2+(diff_coeff_sym_err/diff_coeff_sym)**2) 
+#    
+#    perm, perm_err = perm_coeff(z_windows, resist, resist_err)
+#
+#    #np.savetxt('dGmean.dat', np.vstack((z_windows, dGmeanSym)).T, fmt='%.4f')
+#    return {'z': z_windows, 'time': time, 'forces': forces, 'dG': dG,
+#            'int_facf_windows': int_facf_win, 'facf_windows': facf_win,
+#            'dG_mean': dG_mean, 
+#            'dG_stderr': dG_stderr, 'd_z': diffusion_coeff, 
+#            'd_z_err': diffusion_coeff_err, 'dG_sym': dG_sym, 
+#            'dG_sym_err': dG_sym_err, 'd_z_sym': diff_coeff_sym,
+#            'd_z_sym_err': diff_coeff_sym_err, 
+#            'R_z_all': resist_all, 'R_z': resist, 'R_z_err': resist_err,
+#            'int_F_acf_vals': int_F_acf_vals, 
+#            'permeability': perm,'perm_err': perm_err}
 
 
 def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Sweep'):
