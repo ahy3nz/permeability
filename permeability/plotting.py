@@ -11,7 +11,7 @@ import pdb
 #matplotlib.rc('font', family='Arial')
 
 def plot_forces(z_windows, forces, fig_filename='forces.pdf',
-        z_units=u'nm', force_units=u'kJ/mol-nm', plot_mean=True,
+        z_units=u'nm', force_units=u'kcal/mol-\u00c5', plot_mean=True,
         sweep_alpha=0.5, grid=True):
     """Plot the forces from analyzing the force data
 
