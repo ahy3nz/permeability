@@ -383,12 +383,13 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
     time = np.loadtxt(os.path.join(sweep_dirs[0], 'fcorr0.dat'))[:, 0]
     z_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out'))
+    z_windows = np.asarray([coor*10 for coord in z_windows])
     n_windows = z_windows.shape[0]
     n_win_half = int(np.ceil(float(n_windows)/2))
     dz = z_windows[2]-z_windows[1]
     RT2 = (kB*T)**2
-    #RT2 *= 1e-4  # convert from \AA2/ps to cm2/s
-    RT2 *= 1e-2  # convert from nm2/ps to cm2/s
+    RT2 *= 1e-4  # convert from \AA2/ps to cm2/s
+    #RT2 *= 1e-2  # convert from nm2/ps to cm2/s
     # arrays to hold the forces, integrated FACFs, and free energies from each
     # window and each sweep
     if n_sweeps is None:
