@@ -306,7 +306,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
     return {'time': time, 'forces': forceseries}
 
 
-def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=8.314e-3,
+def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=1.987e-3,
         directory_prefix='Sweep'):
     """Combine force autocorrelations to calculate the free energy profile
     
@@ -319,7 +319,7 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     timestep : float
         Simulation timestep in fs
     kB : float
-        Boltzmann constant, determines units (default is kJ/mol-K)
+        Boltzmann constant, determines units (default is kcal/mol-K)
     n_sweeps : int
         The number of sweeps to analyze
     verbosity : int
