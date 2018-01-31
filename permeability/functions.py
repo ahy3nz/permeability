@@ -4,6 +4,8 @@ import os
 import numpy as np
 import math
 from math import factorial
+import itertools
+import multiprocessing
 #from groupy.gbb import Gbb 
 #from groupy.system import System
 #from groupy.mdio import *
@@ -530,33 +532,30 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     # loop over sweeps
     with multiprocessing.Pool() as p:
         p.starmap(_parallel_analyze_sweeps, zip(sweep_dirs[:n_sweeps],
-            itertools.repeat(timestep), itertools.repeat(correlation_length)))
+            itertools.repeat(timestep), itertools.repeat(correlation_length),
+            itertools.repeat(n_windows)))
 
     
-def _parallel_analyze_sweeps(sweep_dirs, timestep=1.0, correlation_length=300):
-    for sweep_dir in sweep_dirs:
-        print("Analyzing {}".format(sweep_dir))
-        
-        #if verbosity >= 2:
-            #print('Window / Mean force / n_timepoints / dstep (fs)')
-        for window in range(n_windows):
-            data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
-            forces = data[:, 1]
-            dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
-            #dstep = (data[1, 0] - data[0, 0])*timestep
-            #dstep = (data[1,0] - data[0,0]) #AY here
-            if verbosity >= 2:
-                print('{0} / {1} / {2} / {3}'.format(
-                    window, np.mean(data[:, 1]), data.shape[0], dstep))
-            funlen = int(correlation_length/dstep)
-            FACF = acf(data[:, 1], timestep, funlen)
-            time = np.arange(0, funlen*dstep, dstep) 
-            np.savetxt(os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window)),
-                    np.vstack((time, FACF)).T, fmt='%.3f')
-            np.savetxt(os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)),
-                    [np.mean(data[:, 1])], fmt='%.4f')
-        if verbosity >= 1:
-            print('Finished analyzing data in {0}'.format(sweep_dir))
+def _parallel_analyze_sweeps(sweep_dir, timestep=1.0, correlation_length=300,
+        n_windows=35):
+    print("Analyzing {}".format(sweep_dir))
+    
+    #if verbosity >= 2:
+        #print('Window / Mean force / n_timepoints / dstep (fs)')
+    for window in range(n_windows):
+        data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
+        forces = data[:, 1]
+        dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
+        #dstep = (data[1, 0] - data[0, 0])*timestep
+        #dstep = (data[1,0] - data[0,0]) #AY here
+        funlen = int(correlation_length/dstep)
+        FACF = acf(data[:, 1], timestep, funlen)
+        time = np.arange(0, funlen*dstep, dstep) 
+        np.savetxt(os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window)),
+                np.vstack((time, FACF)).T, fmt='%.3f')
+        np.savetxt(os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)),
+                [np.mean(data[:, 1])], fmt='%.4f')
+    print('Finished analyzing data in {0}'.format(sweep_dir))
 
 
 def analyze_rot_sweeps(path, n_sweeps=None, correlation_length=300, directory_prefix='Sweep'):
