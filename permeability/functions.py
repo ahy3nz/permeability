@@ -528,9 +528,17 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
     n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     # loop over sweeps
-    for sweep_dir in sweep_dirs[:n_sweeps]:
-        if verbosity >= 2:
-            print('Window / Mean force / n_timepoints / dstep (fs)')
+    with multiprocessing.Pool() as p:
+        p.starmap(_parallel_analyze_sweeps, zip(sweep_dirs[:n_sweeps],
+            itertools.repeat(timestep), itertools.repeat(correlation_length)))
+
+    
+def _parallel_analyze_sweeps(sweep_dirs, timestep=1.0, correlation_length=300):
+    for sweep_dir in sweep_dirs:
+        print("Analyzing {}".format(sweep_dir))
+        
+        #if verbosity >= 2:
+            #print('Window / Mean force / n_timepoints / dstep (fs)')
         for window in range(n_windows):
             data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
             forces = data[:, 1]
