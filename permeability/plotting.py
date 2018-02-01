@@ -238,7 +238,7 @@ def plot_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff_err
     fig.savefig(fig_filename)
 
 def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff_err, 
-        z_units=u'nm', D_units=u'cm\u00b2/s', fig_filename='d-sym_z.pdf',
+        z_units=u'\u00c5', D_units=u'cm\u00b2/s', fig_filename='d-sym_z.pdf',
         grid=True, sys_name=None, figax=(None,None), savefig=False, addlegend=False):
     """Plot the diffusion coefficient as a function of z-position.
     """
@@ -273,8 +273,8 @@ def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff
     
     return fig, ax
 
-def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'nm',
-        energy_units=u'kJ/mol', fig_filename='delG-sym.pdf', grid=True, sys_name=None, 
+def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'\u00c5',
+        energy_units=u'kcal/mol', fig_filename='delG-sym.pdf', grid=True, sys_name=None, 
         figax=(None,None), savefig=False, addlegend=False):
     """Plot symmetrized delta G
     
