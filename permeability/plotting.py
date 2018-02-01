@@ -250,10 +250,11 @@ def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff
     np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
     # from Raabe and Sadus, JCP, 2012
     zmin = z_windows[0]    
-    #ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([-zmin-10, -zmin],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([zmin, zmin+1],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([-zmin-1, -zmin],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    zmax = z_windows[-1]
+    ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmax-10, zmax],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmin, zmin+1],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmax-1, zmax],[3.86e-5, 3.86e-5],linestyle='--', color='r')
     ax.fill_between(z_windows, diffusion_coeff+diffusion_coeff_err, 
             diffusion_coeff-diffusion_coeff_err,
             facecolor=line.get_color(), edgecolor=line.get_color(), alpha=0.2)
