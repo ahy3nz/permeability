@@ -413,28 +413,37 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     dG = np.ctypeslib.as_array(dG_base.get_obj())
     dG = dG.reshape(n_sweeps, n_windows)
 
-    int_facf_win = None
+    int_f_dim = np.loadtxt(os.path.join(sweep_dirs[0], 'fcorr0.dat')).shape[0]
+    int_facf_win_base = multiprocessing.Array(ctypes.c_float, n_win_half*int_f_dim)
+    int_facf_win = np.ctypeslib.as_array(int_facf_win_base.get_obj())
+    int_facf_win = int_facf_win.reshape(n_win_half, int_f_dim)
+
+    facf_win_base = multiprocessing.Array(ctypes.c_float, n_win_half*int_f_dim)
+    facf_win = np.ctypeslib.as_array(facf_win_base.get_obj())
+    facf_win = facf_win.reshape(n_win_half, int_f_dim)
+
+    #int_facf_win = None
+
     global _parallel_analyze_force_acf
 
-    def _parallel_analyze_force_acf(sweep_info):
+    def _parallel_analyze_force_acf(sweep_info, n_windows, timestep):
         sweep = sweep_info[0]
         sweep_dir = sweep_info[1]
 
         int_Fs = []
         Facfs = []
+
         for window in range(n_windows):
             filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
             int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
             int_F_acf_vals[sweep, window] = int_F_val
             int_Fs.append(int_F)
             Facfs.append(Facf)
-            if int_facf_win is None:
-                int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
-                facf_win = np.zeros((n_win_half, int_F.shape[0]))
+            #if int_facf_win is None:
+                #int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                #facf_win = np.zeros((n_win_half, int_F.shape[0]))
             forces[sweep, window] = np.loadtxt(
                     os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
-            if verbosity >= 2:
-                print(window, z_windows[window], max(int_F))
         for i, val in enumerate(int_facf_win):
             val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
             facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
@@ -442,7 +451,9 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
         #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
 
     with multiprocessing.Pool() as p:
-        p.map(_parallel_analyze_force_acf, enumerate(sweep_dirs[:n_sweeps]))
+        p.starmap(_parallel_analyze_force_acf, zip(enumerate(sweep_dirs[:n_sweeps]),
+            itertools.repeat(n_windows), 
+            itertools.repeat(timestep)))
 
     int_facf_win /= n_sweeps
     facf_win /= n_sweeps
