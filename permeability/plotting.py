@@ -45,8 +45,9 @@ def plot_forces(z_windows, forces, fig_filename='forces.pdf',
     if plot_mean:
         mean_force = np.mean(forces, axis=0)
         ax.plot(z_windows, mean_force)
-        np.savetxt('{}_mean.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_force)))
         std_err = np.std(forces, axis=0) / np.sqrt(forces.shape[0])
+
+        np.savetxt('{}_mean.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_force, std_err)))
         ax.fill_between(z_windows, mean_force+std_err, mean_force-std_err,
                 facecolor='#a8a8a8', edgecolor='#a8a8a8')
     for force_series in forces:
