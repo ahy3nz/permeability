@@ -308,7 +308,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
 
 
 def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=1.987e-3,
-        directory_prefix='Sweep'):
+        directory_prefix='Sweep', parallel=True):
     """Combine force autocorrelations to calculate the free energy profile
     
     Params
@@ -330,6 +330,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     directory_prefix : str, default = 'Sweep'
         Prefix of directories in path that contain the force ACF data. E.g., if
         the data is in sweep<N>, use directory_prefix='sweep'
+    parallel : boolean ,default = True
+        Specify whether or not to use parallel programming via multiprocesing
 
     Returns
     -------
@@ -450,10 +452,38 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
         dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
         #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
 
-    with multiprocessing.Pool() as p:
-        p.starmap(_parallel_analyze_force_acf, zip(enumerate(sweep_dirs[:n_sweeps]),
-            itertools.repeat(n_windows), 
-            itertools.repeat(timestep)))
+    if parallel==True:
+        with multiprocessing.Pool() as p:
+            p.starmap(_parallel_analyze_force_acf, zip(enumerate(sweep_dirs[:n_sweeps]),
+                itertools.repeat(n_windows), 
+                itertools.repeat(timestep)))
+    else:
+        for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+            int_Fs = []
+            Facfs = []
+            if verbosity >=2:
+                print('window / window z-value / max int_F')
+            for window in range(n_windows):
+                filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
+                int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
+                int_F_acf_vals[sweep, window] = int_F_val
+                int_Fs.append(int_F)
+                Facfs.append(Facf)
+                if int_facf_win is None:
+                    int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                    facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                forces[sweep, window] = np.loadtxt(
+                        os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
+                if verbosity >= 2:
+                    print(window, z_windows[window], max(int_F))
+            for i, val in enumerate(int_facf_win):
+                val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
+                facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
+            if verbosity >= 1:
+                print('End of sweep {0}'.format(sweep))
+            dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+            #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
+
 
     int_facf_win /= n_sweeps
     facf_win /= n_sweeps
@@ -493,33 +523,33 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
 
 
 
-# Old serialstuff
-#    for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
-#        int_Fs = []
-#        Facfs = []
-#        if verbosity >=2:
-#            print('window / window z-value / max int_F')
-#        for window in range(n_windows):
-#            filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
-#            int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
-#            int_F_acf_vals[sweep, window] = int_F_val
-#            int_Fs.append(int_F)
-#            Facfs.append(Facf)
-#            if int_facf_win is None:
-#                int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
-#                facf_win = np.zeros((n_win_half, int_F.shape[0]))
-#            forces[sweep, window] = np.loadtxt(
-#                    os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
-#            if verbosity >= 2:
-#                print(window, z_windows[window], max(int_F))
-#        for i, val in enumerate(int_facf_win):
-#            val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
-#            facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
-#        if verbosity >= 1:
-#            print('End of sweep {0}'.format(sweep))
-#        dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
-#        #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
-#    
+ #Old serialstuff
+ #   for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+ #       int_Fs = []
+ #       Facfs = []
+ #       if verbosity >=2:
+ #           print('window / window z-value / max int_F')
+ #       for window in range(n_windows):
+ #           filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
+ #           int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
+ #           int_F_acf_vals[sweep, window] = int_F_val
+ #           int_Fs.append(int_F)
+ #           Facfs.append(Facf)
+ #           if int_facf_win is None:
+ #               int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+ #               facf_win = np.zeros((n_win_half, int_F.shape[0]))
+ #           forces[sweep, window] = np.loadtxt(
+ #                   os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
+ #           if verbosity >= 2:
+ #               print(window, z_windows[window], max(int_F))
+ #       for i, val in enumerate(int_facf_win):
+ #           val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
+ #           facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
+ #       if verbosity >= 1:
+ #           print('End of sweep {0}'.format(sweep))
+ #       dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+ #       #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
+    
 #    int_facf_win /= n_sweeps
 #    facf_win /= n_sweeps
 #    dG_mean = np.mean(dG, axis=0)
@@ -639,7 +669,9 @@ def _parallel_analyze_sweeps(sweep_dir, timestep=1.0, correlation_length=300,
         #print('Window / Mean force / n_timepoints / dstep (fs)')
     for window in range(n_windows):
         data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
-        forces = data[:, 1]
+        data=data[34:,:]
+        #forces = data[34:, 1]
+        forces = data[::2, 1]
         dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
         #dstep = (data[1, 0] - data[0, 0])*timestep
         #dstep = (data[1,0] - data[0,0]) #AY here
