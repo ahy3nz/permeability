@@ -624,7 +624,7 @@ def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Swee
 
 
 def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300, 
-        verbosity=0, directory_prefix='Sweep'):
+        verbosity=0, directory_prefix='Sweep', begin=0, end=None):
     """Analyze the force data to calculate the force ACFs and mean force 
     at each window for each sweep
 
@@ -658,20 +658,23 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     with multiprocessing.Pool() as p:
         p.starmap(_parallel_analyze_sweeps, zip(sweep_dirs[:n_sweeps],
             itertools.repeat(timestep), itertools.repeat(correlation_length),
-            itertools.repeat(n_windows)))
+            itertools.repeat(n_windows), itertools.repeat(begin), itertools.repeat(end)))
 
     
 def _parallel_analyze_sweeps(sweep_dir, timestep=1.0, correlation_length=300,
-        n_windows=35):
+        n_windows=35, begin=0, end=None):
     print("Analyzing {}".format(sweep_dir))
     
     #if verbosity >= 2:
         #print('Window / Mean force / n_timepoints / dstep (fs)')
     for window in range(n_windows):
         data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
-        data=data[34:,:]
+        if end is not None:
+            data = data[begin:end,:]
+        else:
+            data = data[begin:,:]
         #forces = data[34:, 1]
-        forces = data[::2, 1]
+        #forces = data[::2, 1]
         dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
         #dstep = (data[1, 0] - data[0, 0])*timestep
         #dstep = (data[1,0] - data[0,0]) #AY here
