@@ -68,11 +68,11 @@ def perm_coeff(z, resist, resist_err):
         Uncertainty in overall permeability of the bilayer
     """
     
-    #P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
-    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-7) # convert z from nm to cm
+    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
+    #P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-7) # convert z from nm to cm
     
-    #R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
-    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-7 # s/cm
+    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
+    #R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-7 # s/cm
     P_err = R_err_global * (P**2)
     Perrrel = P_err/P
     print('Overall permeability: {P:.3e} [cm/s]'.format(**locals()))
@@ -308,7 +308,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
 
 
 def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=1.987e-3,
-        directory_prefix='Sweep', parallel=True):
+        directory_prefix='Sweep', parallel=True, n_procs=None):
     """Combine force autocorrelations to calculate the free energy profile
     
     Params
@@ -453,7 +453,9 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
         #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
 
     if parallel==True:
-        with multiprocessing.Pool() as p:
+        if n_procs is None:
+            n_procs = multiprocessing.cpu_count()
+        with multiprocessing.Pool(processes=n_procs) as p:
             p.starmap(_parallel_analyze_force_acf, zip(enumerate(sweep_dirs[:n_sweeps]),
                 itertools.repeat(n_windows), 
                 itertools.repeat(timestep)))
@@ -624,7 +626,7 @@ def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Swee
 
 
 def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300, 
-        verbosity=0, directory_prefix='Sweep', begin=0, end=None):
+        verbosity=0, directory_prefix='Sweep', begin=0, end=None, n_procs=None):
     """Analyze the force data to calculate the force ACFs and mean force 
     at each window for each sweep
 
@@ -655,7 +657,9 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
     n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     # loop over sweeps
-    with multiprocessing.Pool() as p:
+    if n_procs is None:
+        n_procs = multiprocessing.cpu_count()
+    with multiprocessing.Pool(processes=n_procs) as p:
         p.starmap(_parallel_analyze_sweeps, zip(sweep_dirs[:n_sweeps],
             itertools.repeat(timestep), itertools.repeat(correlation_length),
             itertools.repeat(n_windows), itertools.repeat(begin), itertools.repeat(end)))
@@ -685,7 +689,7 @@ def _parallel_analyze_sweeps(sweep_dir, timestep=1.0, correlation_length=300,
                 np.vstack((time, FACF)).T, fmt='%.3f')
         np.savetxt(os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)),
                 [np.mean(data[:, 1])], fmt='%.4f')
-    print('Finished analyzing data in {0}'.format(sweep_dir))
+    #print('Finished analyzing data in {0}'.format(sweep_dir))
 
 
 def analyze_rot_sweeps(path, n_sweeps=None, correlation_length=300, directory_prefix='Sweep'):
