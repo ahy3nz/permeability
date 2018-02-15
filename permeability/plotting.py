@@ -45,8 +45,9 @@ def plot_forces(z_windows, forces, fig_filename='forces.pdf',
     if plot_mean:
         mean_force = np.mean(forces, axis=0)
         ax.plot(z_windows, mean_force)
-        np.savetxt('{}_mean.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_force)))
         std_err = np.std(forces, axis=0) / np.sqrt(forces.shape[0])
+
+        np.savetxt('{}_mean.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, mean_force, std_err)))
         ax.fill_between(z_windows, mean_force+std_err, mean_force-std_err,
                 facecolor='#a8a8a8', edgecolor='#a8a8a8')
     for force_series in forces:
@@ -238,7 +239,7 @@ def plot_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff_err
     fig.savefig(fig_filename)
 
 def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff_err, 
-        z_units=u'nm', D_units=u'cm\u00b2/s', fig_filename='d-sym_z.pdf',
+        z_units=u'\u00c5', D_units=u'cm\u00b2/s', fig_filename='d-sym_z.pdf',
         grid=True, sys_name=None, figax=(None,None), savefig=False, addlegend=False):
     """Plot the diffusion coefficient as a function of z-position.
     """
@@ -250,10 +251,11 @@ def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff
     np.savetxt('{}.dat'.format(fig_filename[:-4]), np.column_stack((z_windows, diffusion_coeff, diffusion_coeff_err)))
     # from Raabe and Sadus, JCP, 2012
     zmin = z_windows[0]    
-    #ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([-zmin-10, -zmin],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([zmin, zmin+1],[3.86e-5, 3.86e-5],linestyle='--', color='r')
-    #ax.plot([-zmin-1, -zmin],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    zmax = z_windows[-1]
+    ax.plot([zmin, zmin+10],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmax-10, zmax],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmin, zmin+1],[3.86e-5, 3.86e-5],linestyle='--', color='r')
+    ax.plot([zmax-1, zmax],[3.86e-5, 3.86e-5],linestyle='--', color='r')
     ax.fill_between(z_windows, diffusion_coeff+diffusion_coeff_err, 
             diffusion_coeff-diffusion_coeff_err,
             facecolor=line.get_color(), edgecolor=line.get_color(), alpha=0.2)
@@ -272,8 +274,8 @@ def plot_sym_diffusion_coefficient_z(z_windows, diffusion_coeff, diffusion_coeff
     
     return fig, ax
 
-def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'nm',
-        energy_units=u'kJ/mol', fig_filename='delG-sym.pdf', grid=True, sys_name=None, 
+def plot_symmetrized_free_energy(z_windows, delta_G, delta_G_err, z_units=u'\u00c5',
+        energy_units=u'kcal/mol', fig_filename='delG-sym.pdf', grid=True, sys_name=None, 
         figax=(None,None), savefig=False, addlegend=False):
     """Plot symmetrized delta G
     

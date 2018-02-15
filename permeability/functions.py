@@ -4,6 +4,9 @@ import os
 import numpy as np
 import math
 from math import factorial
+import itertools
+import multiprocessing
+import ctypes
 #from groupy.gbb import Gbb 
 #from groupy.system import System
 #from groupy.mdio import *
@@ -65,11 +68,11 @@ def perm_coeff(z, resist, resist_err):
         Uncertainty in overall permeability of the bilayer
     """
     
-    #P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
-    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-7) # convert z from nm to cm
+    P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-8) # convert z from \AA to cm
+    #P = 1 / (np.sum(resist) * (z[1] - z[0]) * 1e-7) # convert z from nm to cm
     
-    #R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
-    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-7 # s/cm
+    R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-8 # s/cm
+    #R_err_global = np.sqrt(np.sum(resist_err**2) * (z[1] - z[0])) * 1e-7 # s/cm
     P_err = R_err_global * (P**2)
     Perrrel = P_err/P
     print('Overall permeability: {P:.3e} [cm/s]'.format(**locals()))
@@ -305,7 +308,7 @@ def force_timeseries(path, timestep=1.0, n_windows=None, start_window=0, n_sweep
 
 
 def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB=1.987e-3,
-        directory_prefix='Sweep'):
+        directory_prefix='Sweep', parallel=True, n_procs=None):
     """Combine force autocorrelations to calculate the free energy profile
     
     Params
@@ -317,7 +320,7 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     timestep : float
         Simulation timestep in fs
     kB : float
-        Boltzmann constant, determines units (default is kJ/mol-K)
+        Boltzmann constant, determines units (default is kcal/mol-K)
     n_sweeps : int
         The number of sweeps to analyze
     verbosity : int
@@ -327,6 +330,8 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     directory_prefix : str, default = 'Sweep'
         Prefix of directories in path that contain the force ACF data. E.g., if
         the data is in sweep<N>, use directory_prefix='sweep'
+    parallel : boolean ,default = True
+        Specify whether or not to use parallel programming via multiprocesing
 
     Returns
     -------
@@ -394,36 +399,94 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
     # window and each sweep
     if n_sweeps is None:
         n_sweeps = len(sweep_dirs)
-    forces = np.zeros((n_sweeps, n_windows))
-    int_F_acf_vals = np.zeros((n_sweeps, n_windows))
-    dG = np.zeros((n_sweeps, n_windows))
-    int_facf_win = None
-    for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+
+    #forces = np.zeros((n_sweeps, n_windows))
+    force_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    forces = np.ctypeslib.as_array(force_base.get_obj())
+    forces = forces.reshape(n_sweeps,n_windows)
+
+    #int_F_acf_vals = np.zeros((n_sweeps, n_windows))
+    int_F_acf_vals_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    int_F_acf_vals = np.ctypeslib.as_array(int_F_acf_vals_base.get_obj())
+    int_F_acf_vals = int_F_acf_vals.reshape(n_sweeps, n_windows)
+
+    #dG = np.zeros((n_sweeps, n_windows))
+    dG_base = multiprocessing.Array(ctypes.c_float, n_sweeps*n_windows)
+    dG = np.ctypeslib.as_array(dG_base.get_obj())
+    dG = dG.reshape(n_sweeps, n_windows)
+
+    int_f_dim = np.loadtxt(os.path.join(sweep_dirs[0], 'fcorr0.dat')).shape[0]
+    int_facf_win_base = multiprocessing.Array(ctypes.c_float, n_win_half*int_f_dim)
+    int_facf_win = np.ctypeslib.as_array(int_facf_win_base.get_obj())
+    int_facf_win = int_facf_win.reshape(n_win_half, int_f_dim)
+
+    facf_win_base = multiprocessing.Array(ctypes.c_float, n_win_half*int_f_dim)
+    facf_win = np.ctypeslib.as_array(facf_win_base.get_obj())
+    facf_win = facf_win.reshape(n_win_half, int_f_dim)
+
+    #int_facf_win = None
+
+    global _parallel_analyze_force_acf
+
+    def _parallel_analyze_force_acf(sweep_info, n_windows, timestep):
+        sweep = sweep_info[0]
+        sweep_dir = sweep_info[1]
+
         int_Fs = []
         Facfs = []
-        if verbosity >=2:
-            print('window / window z-value / max int_F')
+
         for window in range(n_windows):
             filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
             int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
             int_F_acf_vals[sweep, window] = int_F_val
             int_Fs.append(int_F)
             Facfs.append(Facf)
-            if int_facf_win is None:
-                int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
-                facf_win = np.zeros((n_win_half, int_F.shape[0]))
+            #if int_facf_win is None:
+                #int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                #facf_win = np.zeros((n_win_half, int_F.shape[0]))
             forces[sweep, window] = np.loadtxt(
                     os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
-            if verbosity >= 2:
-                print(window, z_windows[window], max(int_F))
         for i, val in enumerate(int_facf_win):
             val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
             facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
-        if verbosity >= 1:
-            print('End of sweep {0}'.format(sweep))
         dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
         #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
-    
+
+    if parallel==True:
+        if n_procs is None:
+            n_procs = multiprocessing.cpu_count()
+        with multiprocessing.Pool(processes=n_procs) as p:
+            p.starmap(_parallel_analyze_force_acf, zip(enumerate(sweep_dirs[:n_sweeps]),
+                itertools.repeat(n_windows), 
+                itertools.repeat(timestep)))
+    else:
+        for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+            int_Fs = []
+            Facfs = []
+            if verbosity >=2:
+                print('window / window z-value / max int_F')
+            for window in range(n_windows):
+                filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
+                int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
+                int_F_acf_vals[sweep, window] = int_F_val
+                int_Fs.append(int_F)
+                Facfs.append(Facf)
+                if int_facf_win is None:
+                    int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                    facf_win = np.zeros((n_win_half, int_F.shape[0]))
+                forces[sweep, window] = np.loadtxt(
+                        os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
+                if verbosity >= 2:
+                    print(window, z_windows[window], max(int_F))
+            for i, val in enumerate(int_facf_win):
+                val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
+                facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
+            if verbosity >= 1:
+                print('End of sweep {0}'.format(sweep))
+            dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+            #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
+
+
     int_facf_win /= n_sweeps
     facf_win /= n_sweeps
     dG_mean = np.mean(dG, axis=0)
@@ -459,6 +522,71 @@ def analyze_force_acf_data(path, T, timestep=1.0, n_sweeps=None, verbosity=1, kB
             'R_z_all': resist_all, 'R_z': resist, 'R_z_err': resist_err,
             'int_F_acf_vals': int_F_acf_vals, 
             'permeability': perm,'perm_err': perm_err}
+
+
+
+ #Old serialstuff
+ #   for sweep, sweep_dir in enumerate(sweep_dirs[:n_sweeps]): 
+ #       int_Fs = []
+ #       Facfs = []
+ #       if verbosity >=2:
+ #           print('window / window z-value / max int_F')
+ #       for window in range(n_windows):
+ #           filename = os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window))
+ #           int_F, int_F_val, Facf = integrate_acf_over_time(filename,timestep)
+ #           int_F_acf_vals[sweep, window] = int_F_val
+ #           int_Fs.append(int_F)
+ #           Facfs.append(Facf)
+ #           if int_facf_win is None:
+ #               int_facf_win = np.zeros((n_win_half, int_F.shape[0]))
+ #               facf_win = np.zeros((n_win_half, int_F.shape[0]))
+ #           forces[sweep, window] = np.loadtxt(
+ #                   os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)))
+ #           if verbosity >= 2:
+ #               print(window, z_windows[window], max(int_F))
+ #       for i, val in enumerate(int_facf_win):
+ #           val += 0.5 * (int_Fs[i] + int_Fs[-i-1])
+ #           facf_win[i] += 0.5 * (Facfs[i] + Facfs[-i-1])
+ #       if verbosity >= 1:
+ #           print('End of sweep {0}'.format(sweep))
+ #       dG[sweep, :] = - np.cumsum(forces[sweep,:]) * dz
+ #       #dG[sweep, :] = np.cumsum(forces[sweep,:]) * dz
+    
+#    int_facf_win /= n_sweeps
+#    facf_win /= n_sweeps
+#    dG_mean = np.mean(dG, axis=0)
+#    dG_stderr = np.std(dG, axis=0) / np.sqrt(n_sweeps)
+#    
+#    diffusion_coeff = RT2 / np.mean(int_F_acf_vals, axis=0)
+#    diffusion_coeff_err = np.std(RT2 * int_F_acf_vals, axis=0) / np.sqrt(n_sweeps)
+#   
+#    int_facf_sym_all = symmetrize_each(int_F_acf_vals) 
+#    diff_coeff_sym = RT2/np.mean(int_facf_sym_all, axis=0)
+#    diff_coeff_sym_err = RT2*np.std(int_facf_sym_all, axis=0) / (np.mean(int_facf_sym_all, axis=0)**2) / np.sqrt(n_sweeps)
+#     
+#    dG_sym_all = symmetrize_each(dG, zero_boundary_condition=True) 
+#    dG_sym = np.mean(dG_sym_all, axis=0)
+#    dG_sym_err = np.std(dG_sym_all, axis=0) / np.sqrt(n_sweeps)
+#    
+#    resist_all = np.exp(dG_sym_all / (kB*T)) * int_facf_sym_all / RT2 
+#    
+#    expdGerr = np.exp(dG_sym / (kB*T)) * dG_sym_err / (kB*T) 
+#    resist = np.exp(dG_sym / (kB*T)) / diff_coeff_sym
+#    resist_err = resist * np.sqrt((expdGerr/np.exp(dG_sym / (kB*T)))**2+(diff_coeff_sym_err/diff_coeff_sym)**2) 
+#    
+#    perm, perm_err = perm_coeff(z_windows, resist, resist_err)
+#
+#    #np.savetxt('dGmean.dat', np.vstack((z_windows, dGmeanSym)).T, fmt='%.4f')
+#    return {'z': z_windows, 'time': time, 'forces': forces, 'dG': dG,
+#            'int_facf_windows': int_facf_win, 'facf_windows': facf_win,
+#            'dG_mean': dG_mean, 
+#            'dG_stderr': dG_stderr, 'd_z': diffusion_coeff, 
+#            'd_z_err': diffusion_coeff_err, 'dG_sym': dG_sym, 
+#            'dG_sym_err': dG_sym_err, 'd_z_sym': diff_coeff_sym,
+#            'd_z_sym_err': diff_coeff_sym_err, 
+#            'R_z_all': resist_all, 'R_z': resist, 'R_z_err': resist_err,
+#            'int_F_acf_vals': int_F_acf_vals, 
+#            'permeability': perm,'perm_err': perm_err}
 
 
 def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Sweep'):
@@ -498,7 +626,7 @@ def analyze_rotacf_data(path, n_sweeps=None, verbosity=1, directory_prefix='Swee
 
 
 def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300, 
-        verbosity=0, directory_prefix='Sweep'):
+        verbosity=0, directory_prefix='Sweep', begin=0, end=None, n_procs=None):
     """Analyze the force data to calculate the force ACFs and mean force 
     at each window for each sweep
 
@@ -529,27 +657,39 @@ def analyze_sweeps(path, n_sweeps=None, timestep=1.0, correlation_length=300,
     sweep_dirs = glob.glob(os.path.join(path, '{0}*/'.format(directory_prefix)))
     n_windows = np.loadtxt(os.path.join(sweep_dirs[0], 'z_windows.out')).shape[0]
     # loop over sweeps
-    for sweep_dir in sweep_dirs[:n_sweeps]:
-        if verbosity >= 2:
-            print('Window / Mean force / n_timepoints / dstep (fs)')
-        for window in range(n_windows):
-            data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
-            forces = data[:, 1]
-            dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
-            #dstep = (data[1, 0] - data[0, 0])*timestep
-            #dstep = (data[1,0] - data[0,0]) #AY here
-            if verbosity >= 2:
-                print('{0} / {1} / {2} / {3}'.format(
-                    window, np.mean(data[:, 1]), data.shape[0], dstep))
-            funlen = int(correlation_length/dstep)
-            FACF = acf(data[:, 1], timestep, funlen)
-            time = np.arange(0, funlen*dstep, dstep) 
-            np.savetxt(os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window)),
-                    np.vstack((time, FACF)).T, fmt='%.3f')
-            np.savetxt(os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)),
-                    [np.mean(data[:, 1])], fmt='%.4f')
-        if verbosity >= 1:
-            print('Finished analyzing data in {0}'.format(sweep_dir))
+    if n_procs is None:
+        n_procs = multiprocessing.cpu_count()
+    with multiprocessing.Pool(processes=n_procs) as p:
+        p.starmap(_parallel_analyze_sweeps, zip(sweep_dirs[:n_sweeps],
+            itertools.repeat(timestep), itertools.repeat(correlation_length),
+            itertools.repeat(n_windows), itertools.repeat(begin), itertools.repeat(end)))
+
+    
+def _parallel_analyze_sweeps(sweep_dir, timestep=1.0, correlation_length=300,
+        n_windows=35, begin=0, end=None):
+    print("Analyzing {}".format(sweep_dir))
+    
+    #if verbosity >= 2:
+        #print('Window / Mean force / n_timepoints / dstep (fs)')
+    for window in range(n_windows):
+        data = np.loadtxt(os.path.join(sweep_dir, 'forceout{0}.dat'.format(window)))
+        if end is not None:
+            data = data[begin:end,:]
+        else:
+            data = data[begin:,:]
+        #forces = data[34:, 1]
+        #forces = data[::2, 1]
+        dstep = (data[1, 0] - data[0, 0])*timestep/1000 # data intervals in ps 
+        #dstep = (data[1, 0] - data[0, 0])*timestep
+        #dstep = (data[1,0] - data[0,0]) #AY here
+        funlen = int(correlation_length/dstep)
+        FACF = acf(data[:, 1], timestep, funlen)
+        time = np.arange(0, funlen*dstep, dstep) 
+        np.savetxt(os.path.join(sweep_dir, 'fcorr{0}.dat'.format(window)),
+                np.vstack((time, FACF)).T, fmt='%.3f')
+        np.savetxt(os.path.join(sweep_dir, 'meanforce{0}.dat'.format(window)),
+                [np.mean(data[:, 1])], fmt='%.4f')
+    #print('Finished analyzing data in {0}'.format(sweep_dir))
 
 
 def analyze_rot_sweeps(path, n_sweeps=None, correlation_length=300, directory_prefix='Sweep'):
